@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'media',
+        }
+    </script>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
+    <title>setCompleted – Fast and simple task manager</title>
+    <style>
+        body {
+            font-family: "Geist", "Geist Fallback", sans-serif;
+            background: #f8fafc;
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #0f172a;
+            }
+        }
+        /* Carousel wrapper - buttons show on hover */
+        .carousel-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            min-width: 0;
+        }
+        .carousel-nav {
+            flex-shrink: 0;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgb(226 232 240);
+            background: white;
+            color: rgb(71 85 105);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            transition: opacity 0.2s, background 0.2s, color 0.2s;
+        }
+        @media (hover: hover) {
+            .carousel-nav {
+                opacity: 0;
+                pointer-events: none;
+            }
+            .carousel-wrapper:hover .carousel-nav {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+        .carousel-nav:hover {
+            background: rgb(241 245 249);
+            color: rgb(15 23 42);
+        }
+        @media (prefers-color-scheme: dark) {
+            .carousel-nav {
+                border-color: rgb(51 65 85);
+                background: rgb(30 41 59);
+                color: rgb(148 163 184);
+            }
+            .carousel-nav:hover {
+                background: rgb(51 65 85);
+                color: white;
+            }
+        }
+        /* Stacked carousel cards - fills available space */
+        .screenshot-carousel {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            aspect-ratio: 16/9;
+        }
+        .screenshot-card {
+            position: absolute;
+            inset: 0;
+            border-radius: 0.75rem;
+            border: 1px solid rgb(226 232 240);
+            box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.15);
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0.3s, box-shadow 0.3s;
+            background: #1e293b;
+            padding: 0;
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        @media (prefers-color-scheme: dark) {
+            .screenshot-card {
+                border-color: rgb(51 65 85);
+                box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.4);
+            }
+            .screenshot-card:hover {
+                box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+            }
+        }
+        .screenshot-card:hover {
+            z-index: 10;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+        }
+        .screenshot-card picture,
+        .screenshot-card img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: top;
+        }
+        .screenshot-card picture {
+            position: absolute;
+            inset: 0;
+        }
+        .screenshot-card picture img {
+            position: absolute;
+            inset: 0;
+        }
+        /* Card stack - tight, clean deck (small offsets, subtle rotation) */
+        .screenshot-card[data-stack-pos="0"] { transform: translate(0, 0) rotate(1deg); z-index: 4; }
+        .screenshot-card[data-stack-pos="1"] { transform: translate(4px, 4px) rotate(0.5deg); z-index: 3; }
+        .screenshot-card[data-stack-pos="2"] { transform: translate(8px, 8px) rotate(1deg); z-index: 2; }
+        .screenshot-card[data-stack-pos="3"] { transform: translate(12px, 12px) rotate(0.5deg); z-index: 1; }
+        /* Hover overlay on carousel - 15% white layer to indicate interactivity */
+        .screenshot-carousel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 0.75rem;
+            background: rgba(255, 255, 255, 0);
+            pointer-events: none;
+            transition: background 0.25s ease;
+        }
+        .screenshot-carousel:hover::after {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        @media (prefers-color-scheme: dark) {
+            .screenshot-carousel:hover::after {
+                background: rgba(255, 255, 255, 0.08);
+            }
+        }
+        /* Lightbox */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgb(0 0 0 / 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .lightbox.open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        .lightbox picture {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.5rem;
+            background: rgb(255 255 255 / 0.1);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            line-height: 1;
+            transition: background 0.2s;
+        }
+        .lightbox-close:hover {
+            background: rgb(255 255 255 / 0.2);
+        }
+        /* Lightbox slider */
+        .lightbox-slider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            width: 100%;
+            max-width: 95vw;
+        }
+        .lightbox-slider img {
+            max-width: min(85vw, 900px);
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 0.5rem;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+        }
+        .lightbox-nav {
+            flex-shrink: 0;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.5rem;
+            background: rgb(255 255 255 / 0.1);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: background 0.2s;
+        }
+        .lightbox-nav:hover {
+            background: rgb(255 255 255 / 0.2);
+        }
+        .lightbox-nav:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .lightbox-dots {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+        }
+        .lightbox-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            background: rgb(255 255 255 / 0.4);
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .lightbox-dot.active {
+            background: rgb(255 255 255 / 0.9);
+        }
+    </style>
+    <meta name="title" content="setCompleted">
+    <meta name="description" content="A fast and simple task management application. Organize projects, track progress, and get things done.">
+    <meta name="keywords" content="task management,tasks,productivity,project management">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Philip Andersen (renegadevi)">
+    <meta property="og:title" content="setCompleted">
+    <meta property="og:description" content="A fast and simple task management application.">
+    <meta property="og:type" content="website">
+</head>
+
+<body class="min-h-screen text-slate-800 dark:text-slate-100 dark:bg-slate-950">
+    <!-- Header -->
+    <header class="sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm">
+        <div class="flex items-center justify-between h-14 px-4 sm:px-6 max-w-6xl mx-auto">
+            <div class="flex items-center gap-6">
+                <!-- Logo -->
+                <a href="/" class="flex items-center gap-2">
+                    <img src="logo.svg" class="w-8">
+                    <span class="flex items-center gap-1.5">
+                        <span class="font-semibold text-slate-700 dark:text-slate-100 tracking-tight">setCompleted</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-medium">BETA</span>
+                    </span>
+                </a>
+                <!-- Sign up link - update href when app URL is available (e.g. https://app.fast-task.vercel.app/signup) -->
+                <a href="#" id="signup-link" class="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
+                    Sign up
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <div class="grid lg:grid-cols-5 gap-10 lg:gap-12 items-center">
+            <!-- Left: Info -->
+            <div class="flex flex-col gap-6 lg:col-span-2">
+                <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 text-balance">
+                    Fast and simple task manager
+                </h1>
+                <p class="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg">
+                    setCompleted helps you organize projects, track progress, and get things done. Create folders, lists, and tasks with due dates, priorities, and custom fields. Light and dark themes supported.
+                </p>
+                <ul class="space-y-2 text-slate-600 dark:text-slate-400">
+                    <li class="flex items-center gap-2">
+                        <span class="text-emerald-500">✓</span>
+                        Projects and folders
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="text-emerald-500">✓</span>
+                        Due dates, priorities, and status
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="text-emerald-500">✓</span>
+                        Custom columns and feature sets
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="text-emerald-500">✓</span>
+                        Import, Export and Backup data
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="text-emerald-500">✓</span>
+                        Drag and drop friendly
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="text-emerald-500">✓</span>
+                        Fast task adding using tab key
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="text-emerald-500">✓</span>
+                        Overview dashboard and milestones
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Right: Screenshots carousel (dark/light variants via -dark/-light suffix) -->
+            <div class="min-w-0 w-full lg:col-span-3">
+            <div class="carousel-wrapper">
+                <button type="button" class="carousel-nav" id="carousel-prev" aria-label="Previous screenshot">‹</button>
+                <div class="screenshot-carousel" id="screenshot-carousel" aria-label="Application screenshots">
+                <button type="button" class="screenshot-card" data-index="0" data-src-dark="screenshot-1-dark.png" data-src-light="screenshot-1-light.png" data-alt="setCompleted task list view">
+                    <picture>
+                        <source srcset="screenshot-1-dark.png" media="(prefers-color-scheme: dark)">
+                        <img src="screenshot-1-light.png" alt="setCompleted task list view" loading="lazy">
+                    </picture>
+                </button>
+                <button type="button" class="screenshot-card" data-index="1" data-src-dark="screenshot-2-dark.png" data-src-light="screenshot-2-light.png" data-alt="setCompleted project view">
+                    <picture>
+                        <source srcset="screenshot-2-dark.png" media="(prefers-color-scheme: dark)">
+                        <img src="screenshot-2-light.png" alt="setCompleted project view" loading="lazy">
+                    </picture>
+                </button>
+                <button type="button" class="screenshot-card" data-index="2" data-src-dark="screenshot-3-dark.png" data-src-light="screenshot-3-light.png" data-alt="setCompleted task list view">
+                    <picture>
+                        <source srcset="screenshot-3-dark.png" media="(prefers-color-scheme: dark)">
+                        <img src="screenshot-3-light.png" alt="setCompleted task list view" loading="lazy">
+                    </picture>
+                </button>
+                <button type="button" class="screenshot-card" data-index="3" data-src-dark="screenshot-4-dark.png" data-src-light="screenshot-4-light.png" data-alt="setCompleted project view">
+                    <picture>
+                        <source srcset="screenshot-4-dark.png" media="(prefers-color-scheme: dark)">
+                        <img src="screenshot-4-light.png" alt="setCompleted project view" loading="lazy">
+                    </picture>
+                </button>
+                <button type="button" class="screenshot-card" data-index="3" data-src-dark="screenshot-5-dark.png" data-src-light="screenshot-5-light.png" data-alt="setCompleted project view">
+                    <picture>
+                        <source srcset="screenshot-5-dark.png" media="(prefers-color-scheme: dark)">
+                        <img src="screenshot-5-light.png" alt="setCompleted project view" loading="lazy">
+                    </picture>
+                </button>
+                </div>
+                <button type="button" class="carousel-nav" id="carousel-next" aria-label="Next screenshot">›</button>
+            </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-20 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <p>
+                Copyright © <script>document.write(new Date().getFullYear());</script>
+                <a href="https://philipandersen.se" class="text-emerald-600 dark:text-emerald-400 hover:underline">Philip Andersen (renegadevi)</a>
+            </p>
+            <div class="flex items-center gap-4">
+                <a href="privacy.html" class="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Privacy</a>
+                <a href="terms.html" class="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Terms</a>
+            </div>
+        </footer>
+    </main>
+
+    <!-- Lightbox slider -->
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Zoomed screenshot">
+        <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">×</button>
+        <div class="lightbox-slider" id="lightbox-slider">
+            <button type="button" class="lightbox-nav" id="lightbox-prev" aria-label="Previous">‹</button>
+            <picture id="lightbox-picture">
+                <source id="lightbox-src-dark" srcset="" media="(prefers-color-scheme: dark)">
+                <img id="lightbox-img" src="" alt="">
+            </picture>
+            <button type="button" class="lightbox-nav" id="lightbox-next" aria-label="Next">›</button>
+        </div>
+        <div class="lightbox-dots" id="lightbox-dots" aria-label="Slide navigation"></div>
+    </div>
+
+    <script>
+        (function () {
+            const carousel = document.getElementById('screenshot-carousel');
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const lightboxSrcDark = document.getElementById('lightbox-src-dark');
+            const lightboxClose = document.getElementById('lightbox-close');
+            const lightboxPrev = document.getElementById('lightbox-prev');
+            const lightboxNext = document.getElementById('lightbox-next');
+            const lightboxDots = document.getElementById('lightbox-dots');
+            const cards = Array.from(carousel.querySelectorAll('.screenshot-card'));
+            const totalSlides = cards.length;
+
+            let carouselIndex = 0;
+            let carouselInterval;
+            let isPaused = false;
+            const ROTATE_MS = 7000;
+
+            let lightboxIndex = 0;
+
+            // Build slides array for lightbox (srcDark, srcLight, alt)
+            const slides = cards.map(c => ({
+                srcDark: c.dataset.srcDark,
+                srcLight: c.dataset.srcLight,
+                alt: c.dataset.alt
+            }));
+
+            function updateStackPositions() {
+                cards.forEach((card, i) => {
+                    const pos = (i - carouselIndex + totalSlides) % totalSlides;
+                    card.dataset.stackPos = pos;
+                });
+            }
+
+            function cycleCarousel() {
+                if (isPaused) return;
+                carouselIndex = (carouselIndex + 1) % totalSlides;
+                updateStackPositions();
+            }
+
+            function startCarousel() {
+                carouselInterval = setInterval(cycleCarousel, ROTATE_MS);
+            }
+
+            function stopCarousel() {
+                clearInterval(carouselInterval);
+            }
+
+            function goToPrev() {
+                carouselIndex = (carouselIndex - 1 + totalSlides) % totalSlides;
+                updateStackPositions();
+            }
+            function goToNext() {
+                carouselIndex = (carouselIndex + 1) % totalSlides;
+                updateStackPositions();
+            }
+
+            document.getElementById('carousel-prev').addEventListener('click', (e) => {
+                e.stopPropagation();
+                goToPrev();
+            });
+            document.getElementById('carousel-next').addEventListener('click', (e) => {
+                e.stopPropagation();
+                goToNext();
+            });
+
+            // Swipe on carousel
+            let carouselTouchStart = 0;
+            carousel.addEventListener('touchstart', (e) => {
+                carouselTouchStart = e.touches[0].clientX;
+            }, { passive: true });
+            carousel.addEventListener('touchend', (e) => {
+                const diff = carouselTouchStart - e.changedTouches[0].clientX;
+                if (Math.abs(diff) > 40) {
+                    if (diff > 0) goToNext();
+                    else goToPrev();
+                }
+            }, { passive: true });
+
+            const carouselWrapper = document.querySelector('.carousel-wrapper');
+            carouselWrapper.addEventListener('mouseenter', () => {
+                isPaused = true;
+                stopCarousel();
+            });
+            carouselWrapper.addEventListener('mouseleave', () => {
+                isPaused = false;
+                startCarousel();
+            });
+
+            function showLightboxSlide(index) {
+                lightboxIndex = (index + totalSlides) % totalSlides;
+                const s = slides[lightboxIndex];
+                lightboxSrcDark.srcset = s.srcDark;
+                lightboxImg.src = s.srcLight;
+                lightboxImg.alt = s.alt;
+                lightboxPrev.disabled = lightboxIndex === 0;
+                lightboxNext.disabled = lightboxIndex === totalSlides - 1;
+                lightboxDots.querySelectorAll('.lightbox-dot').forEach((dot, i) => {
+                    dot.classList.toggle('active', i === lightboxIndex);
+                });
+            }
+
+            function openLightbox(clickedIndex) {
+                isPaused = true;
+                stopCarousel();
+                lightboxIndex = clickedIndex;
+                lightbox.classList.add('open');
+                document.body.style.overflow = 'hidden';
+
+                // Build dots first
+                lightboxDots.innerHTML = '';
+                for (let i = 0; i < totalSlides; i++) {
+                    const dot = document.createElement('button');
+                    dot.type = 'button';
+                    dot.className = 'lightbox-dot';
+                    dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+                    dot.addEventListener('click', (e) => { e.stopPropagation(); showLightboxSlide(i); });
+                    lightboxDots.appendChild(dot);
+                }
+                showLightboxSlide(lightboxIndex);
+            }
+
+            function closeLightbox() {
+                lightbox.classList.remove('open');
+                document.body.style.overflow = '';
+                isPaused = false;
+                startCarousel();
+            }
+
+            cards.forEach((card, i) => {
+                card.addEventListener('click', () => openLightbox(i));
+            });
+
+            lightboxPrev.addEventListener('click', () => showLightboxSlide(lightboxIndex - 1));
+            lightboxNext.addEventListener('click', () => showLightboxSlide(lightboxIndex + 1));
+
+            lightboxClose.addEventListener('click', closeLightbox);
+            document.getElementById('lightbox-slider').addEventListener('click', (e) => e.stopPropagation());
+            lightboxDots.addEventListener('click', (e) => e.stopPropagation());
+            lightbox.addEventListener('click', (e) => {
+                if (e.target === lightbox) closeLightbox();
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (!lightbox.classList.contains('open')) return;
+                if (e.key === 'Escape') closeLightbox();
+                if (e.key === 'ArrowLeft') showLightboxSlide(lightboxIndex - 1);
+                if (e.key === 'ArrowRight') showLightboxSlide(lightboxIndex + 1);
+            });
+
+            // Swipe support for lightbox
+            let touchStartX = 0;
+            lightbox.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+            lightbox.addEventListener('touchend', (e) => {
+                const diff = touchStartX - e.changedTouches[0].clientX;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) showLightboxSlide(lightboxIndex + 1);
+                    else showLightboxSlide(lightboxIndex - 1);
+                }
+            }, { passive: true });
+
+            updateStackPositions();
+            startCarousel();
+        })();
+    </script>
+</body>
+
+</html>
