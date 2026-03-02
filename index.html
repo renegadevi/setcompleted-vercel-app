@@ -172,6 +172,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
         }
         .lightbox-close {
             position: absolute;
@@ -201,11 +205,14 @@
             justify-content: center;
             gap: 1rem;
             width: 100%;
-            max-width: 95vw;
+            max-width: 96vw;
+            height: min(88vh, 1200px);
         }
         .lightbox-slider img {
-            max-width: min(85vw, 900px);
-            max-height: 85vh;
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            max-height: none;
             object-fit: contain;
             border-radius: 0.5rem;
             box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
@@ -267,7 +274,7 @@
 <body class="min-h-screen text-slate-800 dark:text-slate-100 dark:bg-slate-950">
     <!-- Header -->
     <header class="sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm">
-        <div class="flex items-center justify-between h-14 px-4 sm:px-6 max-w-6xl mx-auto">
+        <div class="flex items-center justify-between h-14 px-4 sm:px-6 max-w-7xl mx-auto">
             <div class="flex items-center gap-6">
                 <!-- Logo -->
                 <a href="/" class="flex items-center gap-2">
@@ -277,7 +284,7 @@
                         <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-medium">BETA</span>
                     </span>
                 </a>
-                <!-- Sign up link - update href when app URL is available (e.g. https://app.fast-task.vercel.app/signup) -->
+                <!-- Sign up link  -->
                 <a href="#" id="signup-link" class="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
                     Sign up
                 </a>
@@ -285,7 +292,7 @@
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div class="grid lg:grid-cols-5 gap-10 lg:gap-12 items-center">
             <!-- Left: Info -->
             <div class="flex flex-col gap-6 lg:col-span-2">
