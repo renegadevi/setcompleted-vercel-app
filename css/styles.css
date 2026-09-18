@@ -298,8 +298,8 @@ img {
   width: 100%;
   height: 100%;
   max-width: none;
-  object-fit: contain;
-  object-position: center;
+  object-fit: cover;
+  object-position: top center;
   background: var(--shot-bg);
 }
 

@@ -4,7 +4,7 @@ Light and dark PNG captures from the Lumen sample workspace. The carousel swaps 
 
 | Slide | Light | Dark |
 | --- | --- | --- |
-| Overview | `dashboard.png` | `screenshot_dashboard_dark.png` |
+| Overview | `screenshot_dashboard_light.png` | `screenshot_dashboard_dark.png` |
 | Projects | `screenshot_projects_light.png` | `screenshot_projects_dark.png` |
 | Projects list | `screenshot_projects-list_light.png` | `screenshot_projects-list_dark.png` |
 | List | `screenshot_list-view_light.png` | `screenshot_list-view_dark.png` |

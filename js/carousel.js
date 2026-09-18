@@ -8,11 +8,14 @@
   const captionBody = root.querySelector("[data-carousel-body]");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const motionMs = 700;
+  const cycleMs = 5000;
 
   if (slides.length === 0) return;
 
   let index = 0;
   let busy = false;
+  let inView = true;
+  let cycleTimer = 0;
 
   function themeName() {
     return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
@@ -66,6 +69,31 @@
     slide.classList.remove("is-settling");
   }
 
+  function stopCycle() {
+    window.clearTimeout(cycleTimer);
+    cycleTimer = 0;
+  }
+
+  function canCycle() {
+    return slides.length > 1
+      && inView
+      && !document.hidden
+      && !root.matches(":hover")
+      && !root.contains(document.activeElement);
+  }
+
+  function scheduleCycle() {
+    stopCycle();
+    if (!canCycle()) return;
+    cycleTimer = window.setTimeout(() => {
+      if (busy || !canCycle()) {
+        scheduleCycle();
+        return;
+      }
+      go(index + 1);
+    }, cycleMs);
+  }
+
   function go(nextIndex) {
     const target = wrapIndex(nextIndex);
     if (target === index || busy) return;
@@ -74,6 +102,7 @@
     const to = slides[target];
     const dir = direction(index, target);
 
+    stopCycle();
     setCaption(to);
     setDots(target);
     slides.forEach((slide, i) => {
@@ -86,6 +115,7 @@
       settle(to);
       to.classList.add("is-active");
       index = target;
+      scheduleCycle();
       return;
     }
 
@@ -107,8 +137,11 @@
       clearMotion(to);
       busy = false;
       index = target;
+      scheduleCycle();
     }, motionMs);
   }
+
+  applyThemeShots();
 
   slides.forEach((slide, i) => {
     const button = document.createElement("button");
@@ -138,6 +171,24 @@
     go(delta < 0 ? index + 1 : index - 1);
   });
 
+  root.addEventListener("mouseenter", stopCycle);
+  root.addEventListener("mouseleave", scheduleCycle);
+  root.addEventListener("focusin", stopCycle);
+  root.addEventListener("focusout", scheduleCycle);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopCycle();
+    else scheduleCycle();
+  });
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      inView = entries.some((entry) => entry.isIntersecting);
+      if (inView) scheduleCycle();
+      else stopCycle();
+    }, { threshold: 0.35 });
+    observer.observe(root);
+  }
+
   document.addEventListener("themechange", applyThemeShots);
-  applyThemeShots();
+  scheduleCycle();
 })();
