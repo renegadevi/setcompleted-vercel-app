@@ -1,572 +1,204 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'media',
-        }
-    </script>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
-    <title>setCompleted – Fast and simple task manager</title>
-    <style>
-        body {
-            font-family: "Geist", "Geist Fallback", sans-serif;
-            background: #f8fafc;
-        }
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: #0f172a;
-            }
-        }
-        /* Carousel wrapper - buttons show on hover */
-        .carousel-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            width: 100%;
-            min-width: 0;
-        }
-        .carousel-nav {
-            flex-shrink: 0;
-            width: 2.25rem;
-            height: 2.25rem;
-            border-radius: 0.5rem;
-            border: 1px solid rgb(226 232 240);
-            background: white;
-            color: rgb(71 85 105);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            transition: opacity 0.2s, background 0.2s, color 0.2s;
-        }
-        @media (hover: hover) {
-            .carousel-nav {
-                opacity: 0;
-                pointer-events: none;
-            }
-            .carousel-wrapper:hover .carousel-nav {
-                opacity: 1;
-                pointer-events: auto;
-            }
-        }
-        .carousel-nav:hover {
-            background: rgb(241 245 249);
-            color: rgb(15 23 42);
-        }
-        @media (prefers-color-scheme: dark) {
-            .carousel-nav {
-                border-color: rgb(51 65 85);
-                background: rgb(30 41 59);
-                color: rgb(148 163 184);
-            }
-            .carousel-nav:hover {
-                background: rgb(51 65 85);
-                color: white;
-            }
-        }
-        /* Stacked carousel cards - fills available space */
-        .screenshot-carousel {
-            position: relative;
-            flex: 1;
-            min-width: 0;
-            aspect-ratio: 16/9;
-        }
-        .screenshot-card {
-            position: absolute;
-            inset: 0;
-            border-radius: 0.75rem;
-            border: 1px solid rgb(226 232 240);
-            box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.15);
-            overflow: hidden;
-            cursor: pointer;
-            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0.3s, box-shadow 0.3s;
-            background: #1e293b;
-            padding: 0;
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        @media (prefers-color-scheme: dark) {
-            .screenshot-card {
-                border-color: rgb(51 65 85);
-                box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.4);
-            }
-            .screenshot-card:hover {
-                box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
-            }
-        }
-        .screenshot-card:hover {
-            z-index: 10;
-            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-        }
-        .screenshot-card picture,
-        .screenshot-card img {
-            display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: top;
-        }
-        .screenshot-card picture {
-            position: absolute;
-            inset: 0;
-        }
-        .screenshot-card picture img {
-            position: absolute;
-            inset: 0;
-        }
-        /* Card stack - tight, clean deck (small offsets, subtle rotation) */
-        .screenshot-card[data-stack-pos="0"] { transform: translate(0, 0) rotate(1deg); z-index: 4; }
-        .screenshot-card[data-stack-pos="1"] { transform: translate(4px, 4px) rotate(0.5deg); z-index: 3; }
-        .screenshot-card[data-stack-pos="2"] { transform: translate(8px, 8px) rotate(1deg); z-index: 2; }
-        .screenshot-card[data-stack-pos="3"] { transform: translate(12px, 12px) rotate(0.5deg); z-index: 1; }
-        /* Hover overlay on carousel - 15% white layer to indicate interactivity */
-        .screenshot-carousel::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 0.75rem;
-            background: rgba(255, 255, 255, 0);
-            pointer-events: none;
-            transition: background 0.25s ease;
-        }
-        .screenshot-carousel:hover::after {
-            background: rgba(255, 255, 255, 0.15);
-        }
-        @media (prefers-color-scheme: dark) {
-            .screenshot-carousel:hover::after {
-                background: rgba(255, 255, 255, 0.08);
-            }
-        }
-        /* Lightbox */
-        .lightbox {
-            position: fixed;
-            inset: 0;
-            z-index: 100;
-            background: rgb(0 0 0 / 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition: opacity 0.3s, visibility 0.3s;
-        }
-        .lightbox.open {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-        .lightbox picture {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex: 1;
-            width: 100%;
-            height: 100%;
-            min-width: 0;
-        }
-        .lightbox-close {
-            position: absolute;
-            top: 1.5rem;
-            right: 1.5rem;
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 0.5rem;
-            background: rgb(255 255 255 / 0.1);
-            color: white;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            line-height: 1;
-            transition: background 0.2s;
-        }
-        .lightbox-close:hover {
-            background: rgb(255 255 255 / 0.2);
-        }
-        /* Lightbox slider */
-        .lightbox-slider {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            width: 100%;
-            max-width: 96vw;
-            height: min(88vh, 1200px);
-        }
-        .lightbox-slider img {
-            width: 100%;
-            height: 100%;
-            max-width: none;
-            max-height: none;
-            object-fit: contain;
-            border-radius: 0.5rem;
-            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
-        }
-        .lightbox-nav {
-            flex-shrink: 0;
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 0.5rem;
-            background: rgb(255 255 255 / 0.1);
-            color: white;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            transition: background 0.2s;
-        }
-        .lightbox-nav:hover {
-            background: rgb(255 255 255 / 0.2);
-        }
-        .lightbox-nav:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-        .lightbox-dots {
-            position: absolute;
-            bottom: 1.5rem;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 0.5rem;
-        }
-        .lightbox-dot {
-            width: 0.5rem;
-            height: 0.5rem;
-            border-radius: 50%;
-            background: rgb(255 255 255 / 0.4);
-            border: none;
-            padding: 0;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .lightbox-dot.active {
-            background: rgb(255 255 255 / 0.9);
-        }
-    </style>
-    <meta name="title" content="setCompleted">
-    <meta name="description" content="A fast and simple task management application. Organize projects, track progress, and get things done.">
-    <meta name="keywords" content="task management,tasks,productivity,project management">
-    <meta name="robots" content="index, follow">
-    <meta name="author" content="Philip Andersen (renegadevi)">
-    <meta property="og:title" content="setCompleted">
-    <meta property="og:description" content="A fast and simple task management application.">
-    <meta property="og:type" content="website">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>setCompleted – Quick and useful project manager</title>
+  <meta name="description" content="A fast task manager you can drive from the keyboard. Add lists, sections, and many tasks in a row, then switch to board, calendar, or Gantt.">
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function () {
+      var theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+    })();
+  </script>
 </head>
-
-<body class="min-h-screen text-slate-800 dark:text-slate-100 dark:bg-slate-950">
-    <!-- Header -->
-    <header class="sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm">
-        <div class="flex items-center justify-between h-14 px-4 sm:px-6 max-w-7xl mx-auto">
-            <div class="flex items-center gap-6">
-                <!-- Logo -->
-                <a href="/" class="flex items-center gap-2">
-                    <img src="logo.svg" class="w-8">
-                    <span class="flex items-center gap-1.5">
-                        <span class="font-semibold text-slate-700 dark:text-slate-100 tracking-tight">setCompleted</span>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-medium">BETA</span>
-                    </span>
-                </a>
-                <!-- Sign up/in link  -->
-                <a href="https://app.setcompleted.com" id="signup-link" class="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
-                    Sign in
-                </a>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <div class="grid lg:grid-cols-5 gap-10 lg:gap-12 items-center">
-            <!-- Left: Info -->
-            <div class="flex flex-col gap-6 lg:col-span-2">
-                <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 text-balance">
-                    Fast and simple task manager
-                </h1>
-                <p class="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg">
-                    setCompleted helps you organize projects, track progress, and get things done. Create folders, lists, and tasks with due dates, priorities, and custom fields. Light and dark themes supported.
-                </p>
-                <ul class="space-y-2 text-slate-600 dark:text-slate-400">
-                    <li class="flex items-center gap-2">
-                        <span class="text-emerald-500">✓</span>
-                        Projects and folders
-                    </li>
-                    <li class="flex items-center gap-2">
-                        <span class="text-emerald-500">✓</span>
-                        Due dates, priorities, and status
-                    </li>
-                    <li class="flex items-center gap-2">
-                        <span class="text-emerald-500">✓</span>
-                        Custom columns and feature sets
-                    </li>
-                    <li class="flex items-center gap-2">
-                        <span class="text-emerald-500">✓</span>
-                        Import, Export and Backup data
-                    </li>
-                    <li class="flex items-center gap-2">
-                        <span class="text-emerald-500">✓</span>
-                        Drag and drop friendly
-                    </li>
-                    <li class="flex items-center gap-2">
-                        <span class="text-emerald-500">✓</span>
-                        Fast task adding using tab key
-                    </li>
-                    <li class="flex items-center gap-2">
-                        <span class="text-emerald-500">✓</span>
-                        Overview dashboard and milestones
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Right: Screenshots carousel (dark/light variants via -dark/-light suffix) -->
-            <div class="min-w-0 w-full lg:col-span-3">
-            <div class="carousel-wrapper">
-                <button type="button" class="carousel-nav" id="carousel-prev" aria-label="Previous screenshot">‹</button>
-                <div class="screenshot-carousel" id="screenshot-carousel" aria-label="Application screenshots">
-                <button type="button" class="screenshot-card" data-index="0" data-src-dark="screenshot-1-dark.png" data-src-light="screenshot-1-light.png" data-alt="setCompleted task list view">
-                    <picture>
-                        <source srcset="screenshot-1-dark.png" media="(prefers-color-scheme: dark)">
-                        <img src="screenshot-1-light.png" alt="setCompleted task list view" loading="lazy">
-                    </picture>
-                </button>
-                <button type="button" class="screenshot-card" data-index="1" data-src-dark="screenshot-2-dark.png" data-src-light="screenshot-2-light.png" data-alt="setCompleted project view">
-                    <picture>
-                        <source srcset="screenshot-2-dark.png" media="(prefers-color-scheme: dark)">
-                        <img src="screenshot-2-light.png" alt="setCompleted project view" loading="lazy">
-                    </picture>
-                </button>
-                <button type="button" class="screenshot-card" data-index="2" data-src-dark="screenshot-3-dark.png" data-src-light="screenshot-3-light.png" data-alt="setCompleted task list view">
-                    <picture>
-                        <source srcset="screenshot-3-dark.png" media="(prefers-color-scheme: dark)">
-                        <img src="screenshot-3-light.png" alt="setCompleted task list view" loading="lazy">
-                    </picture>
-                </button>
-                <button type="button" class="screenshot-card" data-index="3" data-src-dark="screenshot-4-dark.png" data-src-light="screenshot-4-light.png" data-alt="setCompleted project view">
-                    <picture>
-                        <source srcset="screenshot-4-dark.png" media="(prefers-color-scheme: dark)">
-                        <img src="screenshot-4-light.png" alt="setCompleted project view" loading="lazy">
-                    </picture>
-                </button>
-                <button type="button" class="screenshot-card" data-index="3" data-src-dark="screenshot-5-dark.png" data-src-light="screenshot-5-light.png" data-alt="setCompleted project view">
-                    <picture>
-                        <source srcset="screenshot-5-dark.png" media="(prefers-color-scheme: dark)">
-                        <img src="screenshot-5-light.png" alt="setCompleted project view" loading="lazy">
-                    </picture>
-                </button>
-                </div>
-                <button type="button" class="carousel-nav" id="carousel-next" aria-label="Next screenshot">›</button>
-            </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="mt-20 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 dark:text-slate-400">
-            <p>
-                Copyright © <script>document.write(new Date().getFullYear());</script>
-                <a href="https://philipandersen.se" class="text-emerald-600 dark:text-emerald-400 hover:underline">Philip Andersen (renegadevi)</a>
-            </p>
-            <div class="flex items-center gap-4">
-                <a href="privacy.html" class="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Privacy</a>
-                <a href="terms.html" class="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Terms</a>
-            </div>
-        </footer>
-    </main>
-
-    <!-- Lightbox slider -->
-    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Zoomed screenshot">
-        <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">×</button>
-        <div class="lightbox-slider" id="lightbox-slider">
-            <button type="button" class="lightbox-nav" id="lightbox-prev" aria-label="Previous">‹</button>
-            <picture id="lightbox-picture">
-                <source id="lightbox-src-dark" srcset="" media="(prefers-color-scheme: dark)">
-                <img id="lightbox-img" src="" alt="">
-            </picture>
-            <button type="button" class="lightbox-nav" id="lightbox-next" aria-label="Next">›</button>
-        </div>
-        <div class="lightbox-dots" id="lightbox-dots" aria-label="Slide navigation"></div>
+<body>
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <a class="brand" href="/">
+        <img src="assets/logo.svg" alt="" width="40" height="25">
+        <span class="brand__name">setCompleted</span>
+      </a>
+      <a class="btn btn--accent" href="https://app.setcompleted.com/login">Sign in</a>
     </div>
+  </header>
 
-    <script>
-        (function () {
-            const carousel = document.getElementById('screenshot-carousel');
-            const lightbox = document.getElementById('lightbox');
-            const lightboxImg = document.getElementById('lightbox-img');
-            const lightboxSrcDark = document.getElementById('lightbox-src-dark');
-            const lightboxClose = document.getElementById('lightbox-close');
-            const lightboxPrev = document.getElementById('lightbox-prev');
-            const lightboxNext = document.getElementById('lightbox-next');
-            const lightboxDots = document.getElementById('lightbox-dots');
-            const cards = Array.from(carousel.querySelectorAll('.screenshot-card'));
-            const totalSlides = cards.length;
+  <main>
+    <section class="hero pattern-dots">
+      <div class="wrap hero__inner">
+        <h1>Quick and useful project manager</h1>
+        <p class="hero__lead">
+          Add lists, sections, and many tasks from the keyboard — no modal for every row.<br>
+          Then organize the rest with dates, views, and workspaces.
+        </p>
+      </div>
+    </section>
 
-            let carouselIndex = 0;
-            let carouselInterval;
-            let isPaused = false;
-            const ROTATE_MS = 7000;
+    <section class="showcase pattern-dots" aria-label="Product screenshots">
+      <div class="wrap">
+        <div class="panel carousel" data-carousel tabindex="0">
+          <div class="carousel__stage">
+          <ul class="carousel__track" data-carousel-track>
+            <li class="carousel__slide" data-carousel-slide data-title="Overview" data-caption="Due dates, activity, and project progress in one place.">
+              <img class="shot" data-shot-light="assets/screenshots/dashboard.png" data-shot-dark="assets/screenshots/screenshot_dashboard_dark.png" src="assets/screenshots/dashboard.png" alt="setCompleted overview dashboard" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="Projects" data-caption="Every project in the workspace, as cards.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_projects_light.png" data-shot-dark="assets/screenshots/screenshot_projects_dark.png" src="assets/screenshots/screenshot_projects_light.png" alt="setCompleted projects gallery" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="Projects list" data-caption="The same projects as rows, with progress and due dates.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_projects-list_light.png" data-shot-dark="assets/screenshots/screenshot_projects-list_dark.png" src="assets/screenshots/screenshot_projects-list_light.png" alt="setCompleted projects as a list" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="List" data-caption="Sections, dates, and status in a fast keyboard-first list.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_list-view_light.png" data-shot-dark="assets/screenshots/screenshot_list-view_dark.png" src="assets/screenshots/screenshot_list-view_light.png" alt="setCompleted list view" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="Task" data-caption="Dates, estimate, and the rest of a task without leaving the list.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_task-details_light.png" data-shot-dark="assets/screenshots/screenshot_task-details_dark.png" src="assets/screenshots/screenshot_task-details_light.png" alt="setCompleted task details" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="Board" data-caption="The same list, grouped by status.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_board_light.png" data-shot-dark="assets/screenshots/screenshot_board_dark.png" src="assets/screenshots/screenshot_board_light.png" alt="setCompleted board view" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="Timeline" data-caption="Start and due dates on a Gantt-style view.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_gantt_light.png" data-shot-dark="assets/screenshots/screenshot_gantt_dark.png" src="assets/screenshots/screenshot_gantt_light.png" alt="setCompleted timeline and Gantt view" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="Roadmap" data-caption="Now, Next, and Later for a project.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_roadmap_light.png" data-shot-dark="assets/screenshots/screenshot_roadmap_dark.png" src="assets/screenshots/screenshot_roadmap_light.png" alt="setCompleted project roadmap" width="1780" height="1000">
+            </li>
+            <li class="carousel__slide" data-carousel-slide data-title="Sharing" data-caption="A read-only page for a list. Anyone with the link can follow along.">
+              <img class="shot" data-shot-light="assets/screenshots/screenshot_share_light.png" data-shot-dark="assets/screenshots/screenshot_share_dark.png" src="assets/screenshots/screenshot_share_light.png" alt="setCompleted shared list page" width="1780" height="1000">
+            </li>
+          </ul>
+          </div>
+          <div class="carousel__caption">
+            <p>
+              <strong data-carousel-title>Overview</strong>
+              <span data-carousel-body>Due dates, activity, and project progress in one place.</span>
+            </p>
+            <div class="dots" data-carousel-dots></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-            let lightboxIndex = 0;
+    <section class="features pattern-grid" id="product">
+      <div class="wrap">
+        <header class="features__head">
+          <h2>See the work your way</h2>
+        </header>
 
-            // Build slides array for lightbox (srcDark, srcLight, alt)
-            const slides = cards.map(c => ({
-                srcDark: c.dataset.srcDark,
-                srcLight: c.dataset.srcLight,
-                alt: c.dataset.alt
-            }));
+        <div class="feature-stage" data-feature-tabs>
+          <div class="feature-tabs" role="tablist" aria-label="Features">
+            <button class="feature-tab" type="button" role="tab" id="tab-keyboard" aria-controls="panel-keyboard" aria-selected="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 8h15v9h-15V8Z"/><path d="M7 11h.01M10.5 11h.01M14 11h.01M17.5 11h.01M7 14.5h10"/></svg>
+              Keyboard
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-workspaces" aria-controls="panel-workspaces" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5V19a1 1 0 0 0 1 1h5.5V9.5H4Zm9.5 0V20H19a1 1 0 0 0 1-1V9.5h-6.5ZM4 5.5A1.5 1.5 0 0 1 5.5 4H10v4H4V5.5Zm10 0V8h6V5.5A1.5 1.5 0 0 0 18.5 4H14Z"/></svg>
+              Workspaces
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-dates" aria-controls="panel-dates" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5v2M17 3.5v2M4.5 8h15M6 5h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 6 5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01"/></svg>
+              Dates &amp; status
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-views" aria-controls="panel-views" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5h5.5v5.5H5V6.5Zm8.5 0H19v5.5h-5.5V6.5ZM5 15h5.5v3H5v-3Zm8.5 0H19v3h-5.5v-3Z"/></svg>
+              Views
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-share" aria-controls="panel-share" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 11.5 15 8M8.5 12.5 15 16"/><circle cx="7" cy="12" r="2.25"/><circle cx="17" cy="7.5" r="2.25"/><circle cx="17" cy="16.5" r="2.25"/></svg>
+              Sharing
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-roadmap" aria-controls="panel-roadmap" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 17.5 9 8l4 6.5 2.5-4 4 7"/><path d="M4 19.5h16"/></svg>
+              Roadmap
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-columns" aria-controls="panel-columns" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5v14M15.5 5v14M4.5 5h15v14h-15V5Z"/></svg>
+              Columns
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-dashboard" aria-controls="panel-dashboard" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h6v4H5V7Zm8 0h6v4h-6V7ZM5 13h6v5H5v-5Zm8 2h6v3h-6v-3Z"/></svg>
+              Dashboard
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-drag" aria-controls="panel-drag" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5h8M8 12h8M8 15.5h5M5.5 6.5v11A1.5 1.5 0 0 0 7 19h10a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 17 5H7A1.5 1.5 0 0 0 5.5 6.5Z"/></svg>
+              Drag &amp; drop
+            </button>
+            <button class="feature-tab" type="button" role="tab" id="tab-backup" aria-controls="panel-backup" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v9M8.5 10.5 12 14l3.5-3.5M6 16.5v2A1.5 1.5 0 0 0 7.5 20h9a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg>
+              Backup
+            </button>
+          </div>
 
-            function updateStackPositions() {
-                cards.forEach((card, i) => {
-                    const pos = (i - carouselIndex + totalSlides) % totalSlides;
-                    card.dataset.stackPos = pos;
-                });
-            }
+          <div class="feature-copy">
+            <div class="feature-panels">
+            <article class="feature-panel" role="tabpanel" id="panel-keyboard" aria-labelledby="tab-keyboard">
+              <h3>Stay on the keyboard</h3>
+              <p>Name a project, tab into a list, then keep hitting Enter. Sections and the next task stay under your fingers — no modal for every row.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-workspaces" aria-labelledby="tab-workspaces" hidden>
+              <h3>Workspaces and projects</h3>
+              <p>Keep work, private, and client spaces apart. Projects live inside a workspace and hold the lists you actually open each day.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-dates" aria-labelledby="tab-dates" hidden>
+              <h3>Due dates, priority, and status</h3>
+              <p>Give a task a start date, a due date, and a status. Then you can see what is next, overdue, or already done.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-views" aria-labelledby="tab-views" hidden>
+              <h3>List, board, calendar, and Gantt</h3>
+              <p>Switch views on the same list. The last one you used is remembered, so you do not set it up again every time.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-share" aria-labelledby="tab-share" hidden>
+              <h3>Share a list</h3>
+              <p>Publish a read-only page for a list. Anyone with the link can follow the work without signing in.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-roadmap" aria-labelledby="tab-roadmap" hidden>
+              <h3>Roadmap</h3>
+              <p>Place work on Now, Next, and Later when an idea is bigger than a task, but still needs a home on the project.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-columns" aria-labelledby="tab-columns" hidden>
+              <h3>Custom columns</h3>
+              <p>Add text, number, date, or labeled fields when a list needs more than priority and status.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-dashboard" aria-labelledby="tab-dashboard" hidden>
+              <h3>Dashboard and milestones</h3>
+              <p>An overview of open work across the workspace, plus milestone dates when a deadline actually matters.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-drag" aria-labelledby="tab-drag" hidden>
+              <h3>Drag and drop</h3>
+              <p>Reorder tasks, move them between sections, or drop them on another day in the calendar and timeline.</p>
+            </article>
+            <article class="feature-panel" role="tabpanel" id="panel-backup" aria-labelledby="tab-backup" hidden>
+              <h3>Import, export, and backup</h3>
+              <p>Bring data in, take it out, or keep a backup of a workspace when you want a copy you control.</p>
+            </article>
+            </div>
+            <div class="feature-progress" aria-hidden="true">
+              <span class="feature-progress__bar" data-feature-progress></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
 
-            function cycleCarousel() {
-                if (isPaused) return;
-                carouselIndex = (carouselIndex + 1) % totalSlides;
-                updateStackPositions();
-            }
+  <footer class="site-footer">
+    <div class="wrap site-footer__inner">
+      <p>Copyright © 2026 <a href="https://philipandersen.se/">Philip Andersen</a></p>
+      <nav>
+        <a href="https://app.setcompleted.com/privacy">Privacy</a>
+        <a href="https://app.setcompleted.com/terms">Terms</a>
+      </nav>
+    </div>
+  </footer>
 
-            function startCarousel() {
-                carouselInterval = setInterval(cycleCarousel, ROTATE_MS);
-            }
-
-            function stopCarousel() {
-                clearInterval(carouselInterval);
-            }
-
-            function goToPrev() {
-                carouselIndex = (carouselIndex - 1 + totalSlides) % totalSlides;
-                updateStackPositions();
-            }
-            function goToNext() {
-                carouselIndex = (carouselIndex + 1) % totalSlides;
-                updateStackPositions();
-            }
-
-            document.getElementById('carousel-prev').addEventListener('click', (e) => {
-                e.stopPropagation();
-                goToPrev();
-            });
-            document.getElementById('carousel-next').addEventListener('click', (e) => {
-                e.stopPropagation();
-                goToNext();
-            });
-
-            // Swipe on carousel
-            let carouselTouchStart = 0;
-            carousel.addEventListener('touchstart', (e) => {
-                carouselTouchStart = e.touches[0].clientX;
-            }, { passive: true });
-            carousel.addEventListener('touchend', (e) => {
-                const diff = carouselTouchStart - e.changedTouches[0].clientX;
-                if (Math.abs(diff) > 40) {
-                    if (diff > 0) goToNext();
-                    else goToPrev();
-                }
-            }, { passive: true });
-
-            const carouselWrapper = document.querySelector('.carousel-wrapper');
-            carouselWrapper.addEventListener('mouseenter', () => {
-                isPaused = true;
-                stopCarousel();
-            });
-            carouselWrapper.addEventListener('mouseleave', () => {
-                isPaused = false;
-                startCarousel();
-            });
-
-            function showLightboxSlide(index) {
-                lightboxIndex = (index + totalSlides) % totalSlides;
-                const s = slides[lightboxIndex];
-                lightboxSrcDark.srcset = s.srcDark;
-                lightboxImg.src = s.srcLight;
-                lightboxImg.alt = s.alt;
-                lightboxPrev.disabled = lightboxIndex === 0;
-                lightboxNext.disabled = lightboxIndex === totalSlides - 1;
-                lightboxDots.querySelectorAll('.lightbox-dot').forEach((dot, i) => {
-                    dot.classList.toggle('active', i === lightboxIndex);
-                });
-            }
-
-            function openLightbox(clickedIndex) {
-                isPaused = true;
-                stopCarousel();
-                lightboxIndex = clickedIndex;
-                lightbox.classList.add('open');
-                document.body.style.overflow = 'hidden';
-
-                // Build dots first
-                lightboxDots.innerHTML = '';
-                for (let i = 0; i < totalSlides; i++) {
-                    const dot = document.createElement('button');
-                    dot.type = 'button';
-                    dot.className = 'lightbox-dot';
-                    dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
-                    dot.addEventListener('click', (e) => { e.stopPropagation(); showLightboxSlide(i); });
-                    lightboxDots.appendChild(dot);
-                }
-                showLightboxSlide(lightboxIndex);
-            }
-
-            function closeLightbox() {
-                lightbox.classList.remove('open');
-                document.body.style.overflow = '';
-                isPaused = false;
-                startCarousel();
-            }
-
-            cards.forEach((card, i) => {
-                card.addEventListener('click', () => openLightbox(i));
-            });
-
-            lightboxPrev.addEventListener('click', () => showLightboxSlide(lightboxIndex - 1));
-            lightboxNext.addEventListener('click', () => showLightboxSlide(lightboxIndex + 1));
-
-            lightboxClose.addEventListener('click', closeLightbox);
-            document.getElementById('lightbox-slider').addEventListener('click', (e) => e.stopPropagation());
-            lightboxDots.addEventListener('click', (e) => e.stopPropagation());
-            lightbox.addEventListener('click', (e) => {
-                if (e.target === lightbox) closeLightbox();
-            });
-
-            document.addEventListener('keydown', (e) => {
-                if (!lightbox.classList.contains('open')) return;
-                if (e.key === 'Escape') closeLightbox();
-                if (e.key === 'ArrowLeft') showLightboxSlide(lightboxIndex - 1);
-                if (e.key === 'ArrowRight') showLightboxSlide(lightboxIndex + 1);
-            });
-
-            // Swipe support for lightbox
-            let touchStartX = 0;
-            lightbox.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
-            lightbox.addEventListener('touchend', (e) => {
-                const diff = touchStartX - e.changedTouches[0].clientX;
-                if (Math.abs(diff) > 50) {
-                    if (diff > 0) showLightboxSlide(lightboxIndex + 1);
-                    else showLightboxSlide(lightboxIndex - 1);
-                }
-            }, { passive: true });
-
-            updateStackPositions();
-            startCarousel();
-        })();
-    </script>
+  <script src="js/theme.js"></script>
+  <script src="js/carousel.js"></script>
+  <script src="js/feature-tabs.js"></script>
 </body>
-
 </html>
